@@ -1,3 +1,6 @@
+# Solutions are in branch `solutions`
+
+
 # zio-intro-game
 
 An introduction to ZIO using Game Programming!
