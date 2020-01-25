@@ -107,7 +107,7 @@ object ErrorNarrowing extends App {
     * Using `ZIO#refineToOrDie`, narrow the error type of the following
     * effect to IOException.
     */
-  val myReadLine: IO[IOException, String] = ??? // ZIO.effect(readLine())
+  val myReadLine: IO[IOException, String] = ZIO.effect(readLine()).refineOrDie { case e: IOException => e }
 
   def myPrintLn(line: String): UIO[Unit] = UIO(println(line))
 
@@ -131,7 +131,7 @@ object PromptName extends App {
     * their name (using `getStrLn`), and then prints it out to the user (using `putStrLn`).
     */
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
-    ???
+    putStrLn("Write your name") *> getStrLn.orDie.flatMap(putStrLn) as 0
 }
 
 object NumberGuesser extends App {
@@ -149,7 +149,12 @@ object NumberGuesser extends App {
     * the number, feeding their response to `analyzeAnswer`, above.
     */
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
-    ???
+    for {
+      _ <- putStrLn("Guess random number")
+      random <- nextInt(3)
+      guess <- getStrLn.orDie
+      _ <- analyzeAnswer(random + 1, guess)
+    } yield 0
 }
 
 object AlarmApp extends App {
@@ -167,10 +172,13 @@ object AlarmApp extends App {
     */
   lazy val getAlarmDuration: ZIO[Console, IOException, Duration] = {
     def parseDuration(input: String): IO[NumberFormatException, Duration] =
-      ???
+      ZIO.effect(input.toLong)
+        .map(Duration(_, TimeUnit.SECONDS))
+        .refineOrDie{ case e: NumberFormatException => e }
 
     def fallback(input: String): ZIO[Console, IOException, Duration] =
-      ???
+      putStrLn(s"$input is not valid number") *>
+      ZIO.succeed(Duration(0, TimeUnit.SECONDS))
 
     for {
       _ <- putStrLn("Please enter the number of seconds to sleep: ")
@@ -187,7 +195,7 @@ object AlarmApp extends App {
     * prints out a wakeup alarm message, like "Time to wakeup!!!".
     */
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
-    ???
+    (getAlarmDuration.orDie >>= ZIO.sleep) *> putStrLn("Time to wakeup!!!") as 0
 }
 
 object Cat extends App {
