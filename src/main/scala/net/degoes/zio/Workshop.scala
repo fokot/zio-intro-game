@@ -3,6 +3,8 @@ package net.degoes.zio
 import zio._
 import java.text.NumberFormat
 
+import scala.io.Source
+
 object ZIOTypes {
   type ??? = Nothing
 
@@ -210,7 +212,8 @@ object Cat extends App {
     * the result into a string.
     */
   def readFile(file: String): ZIO[Blocking, IOException, String] =
-    ???
+    ZIO.accessM[Blocking](_.blocking.effectBlocking(Source.fromFile(file).mkString))
+      .refineOrDie { case e: IOException => e }
 
   /**
     * EXERCISE 13
@@ -220,7 +223,7 @@ object Cat extends App {
     */
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
     args match {
-      case file :: Nil => ???
+      case file :: Nil => (readFile(file) >>= putStrLn).orDie as 0
       case _           => putStrLn("Usage: cat <file>") as 2
     }
 }
