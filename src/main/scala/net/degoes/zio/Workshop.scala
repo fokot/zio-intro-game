@@ -4,6 +4,7 @@ import zio._
 import java.text.NumberFormat
 
 import scala.io.Source
+import scala.util.Using
 
 object ZIOTypes {
   type ??? = Nothing
@@ -212,8 +213,9 @@ object Cat extends App {
     * the result into a string.
     */
   def readFile(file: String): ZIO[Blocking, IOException, String] =
-    ZIO.accessM[Blocking](_.blocking.effectBlocking(Source.fromFile(file).mkString))
-      .refineOrDie { case e: IOException => e }
+    ZIO.accessM[Blocking](_.blocking.effectBlocking(
+      Using(Source.fromFile(file))(_.mkString).get
+    )).refineOrDie { case e: IOException => e }
 
   /**
     * EXERCISE 13
