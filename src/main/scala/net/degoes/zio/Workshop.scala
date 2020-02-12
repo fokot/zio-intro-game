@@ -1,6 +1,7 @@
 package net.degoes.zio
 
 import zio._
+import zio.clock.Clock
 
 import scala.io.Source
 import scala.util.Using
@@ -327,6 +328,7 @@ object AlarmAppImproved extends App {
     } yield duration
   }
 
+
   /**
     * EXERCISE 16
     *
@@ -335,8 +337,15 @@ object AlarmAppImproved extends App {
     * prints a dot every second that the alarm is sleeping for, and then
     * prints out a wakeup alarm message, like "Time to wakeup!!!".
     */
+  def tick: URIO[Console with Clock, Nothing] =
+    ZIO.sleep(Duration(1, TimeUnit.SECONDS)) *> putStr(".") *> tick
+
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
-    ???
+    (for {
+      d <- getAlarmDuration.orDie
+      _ <- tick.unit.race(ZIO.sleep(d))
+      _ <- putStrLn("\nTime to wakeup!!!")
+    } yield 0)
 }
 
 object ComputePi extends App {
