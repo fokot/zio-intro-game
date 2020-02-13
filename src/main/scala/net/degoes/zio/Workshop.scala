@@ -1,7 +1,11 @@
 package net.degoes.zio
 
+import java.util.concurrent.TimeUnit
+
 import zio._
 import zio.clock.Clock
+import zio.console.putStrLn
+import zio.duration.Duration
 
 import scala.io.Source
 import scala.util.Using
@@ -351,6 +355,7 @@ object AlarmAppImproved extends App {
 object ComputePi extends App {
 
   import zio.random._
+  import zio.console._
 
   /**
     * Some state to keep track of all points inside a circle,
@@ -386,7 +391,45 @@ object ComputePi extends App {
     * Build a multi-fiber program that estimates the value of `pi`. Print out
     * ongoing estimates continuously until the estimation is complete.
     */
-  def run(args: List[String]): ZIO[ZEnv, Nothing, Int] = ???
+  def run(args: List[String]): ZIO[ZEnv, Nothing, Int] = {
+    def calculatePoint(piState: PiState): URIO[ZEnv, Unit] =
+      piState.total.update(_ + 1) *>
+      randomPoint >>= (p =>
+        ZIO.when(insideCircle(p._1, p._2))(piState.inside.update(_ + 1))
+      )
+
+    val threshold: Double = 0.0001
+    // real PI 3.141592653589793
+
+    def printPi(piState: PiState, lastPiRef: Ref[Double]): URIO[Clock with Console, Unit] =
+      for {
+        inside <- piState.inside.get
+        total <- piState.total.get
+        newPi = estimatePi(inside, total)
+        lastPi <- lastPiRef.get
+        _ <-
+          if(Math.abs(newPi - lastPi) < threshold)
+            putStrLn(s"Pi is: ${newPi} +- ${threshold}")
+          else
+            putStrLn(s"Pi estimate is: ${newPi}") *>
+              ZIO.sleep(Duration(5, TimeUnit.SECONDS)) *>
+              lastPiRef.set(newPi) *>
+              printPi(piState, lastPiRef)
+      } yield ()
+
+    for {
+      inside <- Ref.make(0L)
+      total <- Ref.make(0L)
+      lastPi <- Ref.make(0D)
+      piState = PiState(inside, total)
+      _ <- ZIO.raceAll(
+        printPi(piState, lastPi),
+        List.fill(8)(calculatePoint(piState).forever)
+      )
+    } yield 0
+
+  }
+
 }
 
 object StmSwap extends App {
