@@ -508,13 +508,13 @@ object StmLock extends App {
     * acquisition, and release methods.
     */
   class Lock private(tref: TRef[Boolean]) {
-    def acquire: UIO[Unit] = ???
+    def acquire: UIO[Unit] = tref.set(true).commit
 
-    def release: UIO[Unit] = ???
+    def release: UIO[Unit] = tref.set(false).commit
   }
 
   object Lock {
-    def make: UIO[Lock] = ???
+    def make: UIO[Lock] = TRef.make(false).map(new Lock(_)).commit
   }
 
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
@@ -543,9 +543,9 @@ object StmLunchTime extends App {
     */
   final case class Attendee(state: TRef[Attendee.State]) {
 
-    def isStarving: STM[Nothing, Boolean] = ???
+    def isStarving: STM[Nothing, Boolean] = state.get.map(_ == Attendee.State.Starving)
 
-    def feed: STM[Nothing, Unit] = ???
+    def feed: STM[Nothing, Unit] = state.set(Attendee.State.Full)
   }
 
   object Attendee {
@@ -577,9 +577,9 @@ object StmLunchTime extends App {
         }
         .map(_._2)
 
-    def takeSeat(index: Int): STM[Nothing, Unit] = ???
+    def takeSeat(index: Int): STM[Nothing, Unit] = seats.update(index, _ => true).unit
 
-    def vacateSeat(index: Int): STM[Nothing, Unit] = ???
+    def vacateSeat(index: Int): STM[Nothing, Unit] = seats.update(index, _ => false).unit
   }
 
   /**
@@ -599,7 +599,12 @@ object StmLunchTime extends App {
     * Using STM, implement a method that feeds only the starving attendees.
     */
   def feedStarving(table: Table, list: List[Attendee]): UIO[Unit] =
-    ???
+    ZIO.traversePar_(list)(
+      a =>
+      (a.isStarving >>= (s =>
+        if(s) feedAttendee(table, a) else STM.unit
+      )).commit
+    )
 
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] = {
     val Attendees = 100
@@ -615,7 +620,7 @@ object StmLunchTime extends App {
         )
       table <- TArray
         .fromIterable(List.fill(TableSize)(false))
-        .map(Table(_))
+        .map(Table)
         .commit
       _ <- feedStarving(table, attendees)
     } yield 0
