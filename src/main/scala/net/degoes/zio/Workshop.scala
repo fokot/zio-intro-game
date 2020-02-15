@@ -462,6 +462,8 @@ object StmSwap extends App {
     } yield value
   }
 
+
+
   /**
     * EXERCISE 19
     *
@@ -469,7 +471,12 @@ object StmSwap extends App {
     */
   def exampleStm = {
     def swap[A](ref1: TRef[A], ref2: TRef[A]): UIO[Unit] =
-      ???
+      (for {
+        v1 <- ref1.get
+        v2 <- ref2.get
+        _ <- ref2.set(v1)
+        _ <- ref1.set(v2)
+      } yield ()).commit
 
     for {
       ref1 <- TRef.make(100).commit
@@ -482,7 +489,11 @@ object StmSwap extends App {
   }
 
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
-    exampleRef.map(_.toString).flatMap(putStrLn) as 0
+    putStrLn("Run this multiple times, correct result should be 100") *>
+    putStr("Ref result: ") *>
+    exampleRef.map(_.toString).flatMap(putStrLn) *>
+    putStr("STM result: ") *>
+    exampleStm.map(_.toString).flatMap(putStr) as 0
 }
 
 object StmLock extends App {
