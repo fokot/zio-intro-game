@@ -1,6 +1,7 @@
 package net.degoes.zio
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 import zio._
 import zio.clock.Clock
@@ -437,6 +438,8 @@ object StmSwap extends App {
   import zio.console._
   import zio.stm._
 
+  val ioCount = new AtomicInteger()
+
   /**
     * EXERCISE 18
     *
@@ -448,7 +451,7 @@ object StmSwap extends App {
       for {
         v1 <- ref1.get
         v2 <- ref2.get
-//        _ = println("io")
+        _ <- ZIO.effectTotal(ioCount.incrementAndGet())
         _ <- ref2.set(v1)
         _ <- ref1.set(v2)
       } yield ()
@@ -463,6 +466,8 @@ object StmSwap extends App {
     } yield value
   }
 
+  val stmCount = new AtomicInteger()
+
   /**
     * EXERCISE 19
     *
@@ -473,7 +478,9 @@ object StmSwap extends App {
       (for {
         v1 <- ref1.get
         v2 <- ref2.get
-//        _ = println("stm")
+        // do not do this in real life, it is just demonstrating STM retries
+        // one can not have effects in STM
+        _ = stmCount.incrementAndGet()
         _ <- ref2.set(v1)
         _ <- ref1.set(v2)
       } yield ()).commit
@@ -490,10 +497,12 @@ object StmSwap extends App {
 
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
     putStrLn("Run this multiple times, correct result should be 100") *>
-    putStr("Ref result: ") *>
+    putStr("IORef result: ") *>
     exampleRef.map(_.toString).flatMap(putStrLn) *>
+    putStrLn(s"IORef count: ${ioCount.get()}") *>
     putStr("STM result: ") *>
-    exampleStm.map(_.toString).flatMap(putStr) as 0
+    exampleStm.map(_.toString).flatMap(putStrLn) *>
+    putStrLn(s"STM count: ${stmCount.get()}")  as 0
 }
 
 object StmLock extends App {
