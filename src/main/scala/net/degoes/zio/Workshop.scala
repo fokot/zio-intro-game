@@ -341,15 +341,15 @@ object AlarmAppImproved extends App {
     * prints a dot every second that the alarm is sleeping for, and then
     * prints out a wakeup alarm message, like "Time to wakeup!!!".
     */
-  def tick: URIO[Console with Clock, Nothing] =
-    ZIO.sleep(Duration(1, TimeUnit.SECONDS)) *> putStr(".") *> tick
+  def tick: URIO[Console with Clock, Unit] =
+    ZIO.sleep(Duration(1, TimeUnit.SECONDS)) *> putStr(".")
 
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
-    (for {
+    for {
       d <- getAlarmDuration.orDie
-      _ <- tick.unit.race(ZIO.sleep(d))
+      _ <- tick.forever.race(ZIO.sleep(d))
       _ <- putStrLn("\nTime to wakeup!!!")
-    } yield 0)
+    } yield 0
 }
 
 object ComputePi extends App {
@@ -448,6 +448,7 @@ object StmSwap extends App {
       for {
         v1 <- ref1.get
         v2 <- ref2.get
+//        _ = println("io")
         _ <- ref2.set(v1)
         _ <- ref1.set(v2)
       } yield ()
@@ -462,8 +463,6 @@ object StmSwap extends App {
     } yield value
   }
 
-
-
   /**
     * EXERCISE 19
     *
@@ -474,6 +473,7 @@ object StmSwap extends App {
       (for {
         v1 <- ref1.get
         v2 <- ref2.get
+//        _ = println("stm")
         _ <- ref2.set(v1)
         _ <- ref1.set(v2)
       } yield ()).commit
