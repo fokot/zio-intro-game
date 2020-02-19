@@ -652,13 +652,36 @@ object StmPriorityQueue extends App {
     minLevel: TRef[Int],
     map: TMap[Int, TQueue[A]]
   ) {
-    def offer(a: A, priority: Int): STM[Nothing, Unit] = ???
+    def offer(a: A, priority: Int): STM[Nothing, Unit] =
+      for {
+        min <- minLevel.get
+        _ <- if(priority < min) minLevel.set(priority) else STM.unit
+        tqOpt <- map.get(priority)
+        _ <- tqOpt.fold(
+          TQueue.make[A](Int.MaxValue) >>= (q => q.offer(a) *> map.put(priority, q))
+        )(_.offer(a))
+      } yield ()
 
-    def take: STM[Nothing, A] = ???
+    def take: STM[Nothing, A] =
+      for {
+        min <- minLevel.get
+        tqOpt <- map.get(min)
+        tq <- tqOpt.fold[STM[Nothing, TQueue[A]]](STM.retry)(STM.succeed)
+        a <- tq.take
+        size <- tq.size
+        _ <-
+          if(size == 0)
+            map.delete(min) *> map.keys.map(l => if(l.isEmpty) Int.MaxValue else l.min) >>= (m => minLevel.set(m))
+          else STM.unit
+      } yield a
   }
 
   object PriorityQueue {
-    def make[A]: STM[Nothing, PriorityQueue[A]] = ???
+    def make[A]: STM[Nothing, PriorityQueue[A]] =
+      for {
+        minLevel <- TRef.make(Int.MaxValue)
+        map <- TMap.empty[Int, TQueue[A]]
+      } yield new PriorityQueue(minLevel, map)
   }
 
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
@@ -676,7 +699,7 @@ object StmPriorityQueue extends App {
           .commit
       }
       _ <- ZIO.forkAll(List(lowPriority, highPriority)) *> queue.take.commit
-        .flatMap(putStrLn(_))
+        .flatMap(putStrLn)
         .forever
         .fork *>
         getStrLn
